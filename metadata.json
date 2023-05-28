@@ -1,0 +1,8 @@
+{
+  "name": "Activity time",
+  "description": "Show total active time",
+  "uuid": "activity-time@michlampert.github.com",
+  "shell-version": [
+    "43"
+  ]
+}
