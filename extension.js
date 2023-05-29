@@ -1,6 +1,6 @@
 const GETTEXT_DOMAIN = 'my-indicator-extension';
 
-const { Clutter, GObject, St, Soup, GLib } = imports.gi;
+const { Clutter, GObject, St, Soup, GLib, Gio } = imports.gi;
 const ByteArray = imports.byteArray;
 
 const ExtensionUtils = imports.misc.extensionUtils;
@@ -16,6 +16,12 @@ const { format, getTimerange } = CurrentExtension.imports.utils
 
 const Mainloop = imports.mainloop;
 
+class CustomPopupMenu extends PopupMenu.PopupMenu {
+    close() {
+        super.close()
+        this.removeAll()
+    }
+}
 
 const Indicator = GObject.registerClass(
     class Indicator extends PanelMenu.Button {
@@ -41,17 +47,36 @@ const Indicator = GObject.registerClass(
                 x_align: Clutter.ActorAlign.FILL,
             }));
 
-            let item = new PopupMenu.PopupMenuItem(_('Show Notification'));
+            this.setMenu(
+                new CustomPopupMenu(this.menu.sourceActor, 0.5, St.Side.TOP)
+            )
+
+            this.connect('button-press-event', (_a, event) => this._onClick(event));
+        }
+
+        _onClick(event) {
+            let port = '5600'
+
+            switch (event.get_button()) {
+                case Clutter.BUTTON_PRIMARY:
+                    GLib.spawn_command_line_async(`xdg-open 'http://127.0.0.1:${port}'`)
+                    return Clutter.EVENT_STOP
+                case Clutter.BUTTON_SECONDARY:
+                    this._toggleMenu()
+                    return Clutter.EVENT_STOP
+            }
+        }
+
+        _toggleMenu() {
+            this.menu.removeAll()
+            let item = new PopupMenu.PopupMenuItem(_('Settings'));
             item.connect('activate', () => {
                 Main.notify('' + Math.random());
             });
             this.menu.addMenuItem(item);
+            this.menu.toggle()
         }
 
-        destroy() {
-            this._removeTimeout();
-            super.destroy();
-        }
     });
 
 class Extension {
