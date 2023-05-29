@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.prefs" path="/org/gnome/shell/extensions/prefs/">
+    <!-- See also: https://docs.gtk.org/glib/gvariant-format-strings.html -->
+    <key name="show-icon" type="b">
+      <default>true</default>
+    </key>
+    <key name="port" type="i">
+      <default>5600</default>
+    </key>
+    <key name="refresh-time" type="i">
+      <default>10</default>
+    </key>
+    <key name="show-seconds" type="b">
+      <default>true</default>
+    </key>
+  </schema>
+</schemalist>

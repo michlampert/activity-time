@@ -5,5 +5,6 @@
   "shell-version": [
     "43"
   ],
-  "url": "https://github.com/michlampert/activity-time"
+  "url": "https://github.com/michlampert/activity-time",
+  "settings-schema": "org.gnome.shell.extensions.prefs"
 }

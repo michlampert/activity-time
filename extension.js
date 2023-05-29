@@ -1,4 +1,4 @@
-const GETTEXT_DOMAIN = 'my-indicator-extension';
+const GETTEXT_DOMAIN = 'activity-time-extension';
 
 const { Clutter, GObject, St, Soup, GLib, Gio } = imports.gi;
 const ByteArray = imports.byteArray;
@@ -16,7 +16,8 @@ const { format, getTimerange } = CurrentExtension.imports.utils
 
 const Mainloop = imports.mainloop;
 
-class CustomPopupMenu extends PopupMenu.PopupMenu {
+// when menu is empty, it won't be show after click
+class OneShotPopupMenu extends PopupMenu.PopupMenu {
     close() {
         super.close()
         this.removeAll()
@@ -25,8 +26,10 @@ class CustomPopupMenu extends PopupMenu.PopupMenu {
 
 const Indicator = GObject.registerClass(
     class Indicator extends PanelMenu.Button {
-        _init() {
-            super._init(0.0, _('My Shiny Indicator'));
+        _init(settings) {
+            super._init(0.0, '');
+
+            this.settings = settings
 
             this.box = new St.BoxLayout({
                 x_align: Clutter.ActorAlign.FILL
@@ -41,25 +44,28 @@ const Indicator = GObject.registerClass(
 
             this.box.add_child(this.label)
 
-            this.box.add_child(new St.Icon({
+            this.icon = new St.Icon({
                 icon_name: 'document-open-recent-symbolic',
                 style_class: 'system-status-icon',
                 x_align: Clutter.ActorAlign.FILL,
-            }));
+            })
+
+            this.settings.bind('show-icon', this.icon, 'visible', Gio.SettingsBindFlags.DEFAULT);
+
+            this.box.add_child(this.icon);
 
             this.setMenu(
-                new CustomPopupMenu(this.menu.sourceActor, 0.5, St.Side.TOP)
+                new OneShotPopupMenu(this.menu.sourceActor, 0.5, St.Side.TOP)
             )
 
             this.connect('button-press-event', (_a, event) => this._onClick(event));
         }
 
         _onClick(event) {
-            let port = '5600'
 
             switch (event.get_button()) {
                 case Clutter.BUTTON_PRIMARY:
-                    GLib.spawn_command_line_async(`xdg-open 'http://127.0.0.1:${port}'`)
+                    GLib.spawn_command_line_async(`xdg-open 'http://127.0.0.1:${this.settings.get_int('port')}'`)
                     return Clutter.EVENT_STOP
                 case Clutter.BUTTON_SECONDARY:
                     this._toggleMenu()
@@ -70,9 +76,7 @@ const Indicator = GObject.registerClass(
         _toggleMenu() {
             this.menu.removeAll()
             let item = new PopupMenu.PopupMenuItem(_('Settings'));
-            item.connect('activate', () => {
-                Main.notify('' + Math.random());
-            });
+            item.connect('activate', () => ExtensionUtils.openPrefs());
             this.menu.addMenuItem(item);
             this.menu.toggle()
         }
@@ -87,7 +91,9 @@ class Extension {
     }
 
     enable() {
-        this._indicator = new Indicator();
+        this.settings = ExtensionUtils.getSettings();
+
+        this._indicator = new Indicator(this.settings);
         Main.panel.addToStatusArea(this._uuid, this._indicator);
 
         this._refresh();
@@ -101,7 +107,7 @@ class Extension {
 
     _updateText() {
 
-        let port = '5600'
+        let port = this.settings.get_int('port')
 
         if (!this.watcher) {
             getWatcher(port, w => this.watcher = w)
@@ -111,18 +117,20 @@ class Extension {
         let [start, end] = getTimerange();
 
         getActiveTime(port, this.watcher, start, end, sum => {
-            this._indicator.label.set_text(format(sum))
+            this._indicator.label.set_text(format(sum, this.settings.get_boolean('show-seconds')))
         })
 
     }
 
     _refresh() {
-        const REFRESH_RATE = 3;
 
         this._updateText();
 
+        console.log(this.settings.get_int('port'))
+        console.log(this.settings.get_int('refresh-time'))
+
         this._removeTimeout();
-        this._timeout = Mainloop.timeout_add_seconds(REFRESH_RATE, this._refresh.bind(this));
+        this._timeout = Mainloop.timeout_add_seconds(this.settings.get_int('refresh-time'), this._refresh.bind(this));
 
         return true;
     }
