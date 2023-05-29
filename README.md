@@ -12,4 +12,4 @@
 
 - You can configure watcher in `~/.config/activitywatch/aw-watcher-afk/` file.
 
-![magic](https://tenor.com/bJga8.gif)
+![magic](https://media.tenor.com/IOEsG9ldvhAAAAAd/mr-bean.gif)
