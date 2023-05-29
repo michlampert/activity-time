@@ -21,7 +21,7 @@ const { format, getTimerange } = CurrentExtension.imports.utils;
 
 const Mainloop = imports.mainloop;
 
-// when menu is empty, it won't be show after click
+// when menu is empty, it won't be shown after click
 class OneShotPopupMenu extends PopupMenu.PopupMenu {
   close() {
     super.close();
