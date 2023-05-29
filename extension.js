@@ -4,13 +4,17 @@ const { Clutter, GObject, St, Soup, GLib } = imports.gi;
 const ByteArray = imports.byteArray;
 
 const ExtensionUtils = imports.misc.extensionUtils;
+const CurrentExtension = ExtensionUtils.getCurrentExtension();
 const Main = imports.ui.main;
 const PanelMenu = imports.ui.panelMenu;
 const PopupMenu = imports.ui.popupMenu;
 
 const _ = ExtensionUtils.gettext;
 
+const { getWatcher, getActiveTime } = CurrentExtension.imports.api
+
 const Mainloop = imports.mainloop;
+
 
 const Indicator = GObject.registerClass(
     class Indicator extends PanelMenu.Button {
@@ -54,7 +58,7 @@ const Indicator = GObject.registerClass(
                 data = ByteArray.toString(data);
             }
 
-            if (!data || JSON.parse(data).length == 0) {
+            if (!data) {
                 return "No data from ActivityWatch";
             }
 
@@ -103,85 +107,27 @@ const Indicator = GObject.registerClass(
             return [start, end]
         }
 
-        _processWatchers(data) {
-            if (data instanceof Uint8Array) {
-                data = ByteArray.toString(data);
-            }
-
-            if (!data || JSON.parse(data).length == 0) {
-                return "No data from ActivityWatch";
-            }
-
-            data = Object.values(JSON.parse(data))
-                .filter(val => val.client == 'aw-watcher-afk')
-            data.sort((a, b) => new Date(b.last_updated) - new Date(a.last_updated)) // in descending order
-
-            return data[0].id
-        }
-
-        _getWatchers() {
-            let session = new Soup.Session();
+        _updateText() {
 
             let port = '5600'
 
-            let uri = `http://localhost:${port}/api/0/buckets/`
-
-            let _message = Soup.Message.new("GET", uri);
-
-            session.send_and_read_async(_message, GLib.PRIORITY_DEFAULT, null, (_httpSession, _message) => {
-
-                try {
-                    let w = this._processWatchers(_httpSession.send_and_read_finish(_message).get_data());
-                    console.log(w)
-                    this.watcher = w
-                }
-                catch (e) {
-                    console.warn(e)
-                    _httpSession.abort();
-                }
-            });
-        }
-
-        _setText() {
-
-            let session = new Soup.Session();
-
-            let port = '5600'
-            
-            if(!this.watcher) {
-                this._getWatchers()
+            if (!this.watcher) {
+                getWatcher(port, w => this.watcher = w)
                 return
             }
 
-            let watcher = GLib.Uri.escape_string(this.watcher, null, true);
-
             let [start, end] = this._get_timerange();
 
-            let escaped_start = GLib.Uri.escape_string(start.toISOString(), null, true);
-            let escaped_end = GLib.Uri.escape_string(end.toISOString(), null, true);
-
-            let uri = `http://localhost:${port}/api/0/buckets/${watcher}/events?start=${escaped_start}&end=${escaped_end}&limit=-1`;
-
-            let _message = Soup.Message.new("GET", uri);
-
-            session.send_and_read_async(_message, GLib.PRIORITY_DEFAULT, null, (_httpSession, _message) => {
-
-                try {
-                    let data = this._processData(_httpSession.send_and_read_finish(_message).get_data());
-                    this.label.set_text(this._format(data));
-                }
-                catch (e) {
-                    console.warn(e)
-                    _httpSession.abort();
-                }
-            });
+            getActiveTime(port, this.watcher, start, end, sum => {
+                this.label.set_text(this._format(sum))
+            })
 
         }
 
         _refresh() {
             const REFRESH_RATE = 3;
 
-            this._setText();
+            this._updateText();
 
             this._removeTimeout();
             this._timeout = Mainloop.timeout_add_seconds(REFRESH_RATE, this._refresh.bind(this));
