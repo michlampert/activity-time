@@ -1,23 +1,3 @@
-/* extension.js
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
- * SPDX-License-Identifier: GPL-2.0-or-later
- */
-
-/* exported init */
-
 const GETTEXT_DOMAIN = 'my-indicator-extension';
 
 const { Clutter, GObject, St, Soup, GLib } = imports.gi;
@@ -33,87 +13,194 @@ const _ = ExtensionUtils.gettext;
 const Mainloop = imports.mainloop;
 
 const Indicator = GObject.registerClass(
-class Indicator extends PanelMenu.Button {
-    _init() {
-        super._init(0.0, _('My Shiny Indicator'));
-        
-        this.box = new St.BoxLayout({
-			    x_align: Clutter.ActorAlign.FILL
-		    });
-		    
-		    this.add_child(this.box)
-        
-        this.label = (new St.Label({
-			    text: "dupa",
-			    y_align: Clutter.ActorAlign.CENTER
-		    }))
-		    
-		    this.box.add_child(this.label)
+    class Indicator extends PanelMenu.Button {
+        _init() {
+            super._init(0.0, _('My Shiny Indicator'));
 
-        this.box.add_child(new St.Icon({
-            icon_name: 'document-open-recent-symbolic',
-            style_class: 'system-status-icon',
-			      x_align: Clutter.ActorAlign.FILL,
-        }));
+            this.box = new St.BoxLayout({
+                x_align: Clutter.ActorAlign.FILL
+            });
 
-        let item = new PopupMenu.PopupMenuItem(_('Show Notification'));
-        item.connect('activate', () => {
-            Main.notify('' + Math.random());
-        });
-        this.menu.addMenuItem(item);
-        
-        this._refresh()
-    }
-    
-    _setText() {
-        let session = new Soup.Session();
-        let params = {
-            len: '20'
+            this.add_child(this.box)
+
+            this.label = (new St.Label({
+                text: "dupa",
+                y_align: Clutter.ActorAlign.CENTER
+            }))
+
+            this.box.add_child(this.label)
+
+            this.box.add_child(new St.Icon({
+                icon_name: 'document-open-recent-symbolic',
+                style_class: 'system-status-icon',
+                x_align: Clutter.ActorAlign.FILL,
+            }));
+
+            let item = new PopupMenu.PopupMenuItem(_('Show Notification'));
+            item.connect('activate', () => {
+                Main.notify('' + Math.random());
+            });
+            this.menu.addMenuItem(item);
+
+            this._refresh()
         }
-        let _paramsHash = Soup.form_encode_hash(params);
-        let _message = new Soup.Message({
-            method: "GET",
-            uri: GLib.Uri.parse('https://ciprand.p3p.repl.co/api?len=20&count=10', GLib.UriFlags.NONE),
-        });
 
-        session.send_and_read_async(_message, GLib.PRIORITY_DEFAULT, null, (_httpSession, _message) => {
+        _format(seconds) {
+            return new Date(seconds * 1000).toISOString().slice(11, 19);
+        }
 
-            let _jsonString = _httpSession.send_and_read_finish(_message).get_data();
-            if (_jsonString instanceof Uint8Array) {
-                _jsonString = ByteArray.toString(_jsonString);
+        _processData(data) {
+            if (data instanceof Uint8Array) {
+                data = ByteArray.toString(data);
             }
-            try {
-                if (!_jsonString) {
-                    throw new Error("No data in response body");
+
+            if (!data || JSON.parse(data).length == 0) {
+                return "No data from ActivityWatch";
+            }
+
+            data = JSON.parse(data).map(d => {
+                return {
+                    timestamp: new Date(d.timestamp),
+                    duration: d.duration,
+                    status: d.data.status
                 }
-                this.label.set_text(JSON.parse(_jsonString).Strings[0]);
-            }
-            catch (e) {
-                _httpSession.abort();
-                reject(e);
-            }
-        });
-      
-    }
-    
-    _refresh() {
-		  const REFRESH_RATE = 1;
-		  
-		  this._setText();
+            })
 
-		  this._removeTimeout();
-		  this._timeout = Mainloop.timeout_add_seconds(REFRESH_RATE, this._refresh.bind(this));
-		  
-		  return true;
-	  }
-    
-    _removeTimeout() {
-		  if(this._timeout) {
-			  Mainloop.source_remove(this._timeout);
-			  this._timeout = null;
-		  }
-	  }
-});
+            data.sort((a, b) => a.timestamp - b.timestamp)
+
+            let sum = data.filter(val => val.duration > 1)
+                .reduce((acc, val) => {
+                    let last = acc.pop()
+                    if (last.timestamp.getTime() < val.timestamp.getTime()) {
+                        return [...acc, last, val]
+                    } else if (last.duration < val.duration && last.status == val.status) {
+                        return [...acc, val]
+                    } else {
+                        return [...acc, last]
+                    }
+                }, data.slice(0, 1))
+                .filter(val => val.status == 'not-afk')
+                .reduce((acc, val) => acc + val.duration, 0)
+
+            return sum
+        }
+
+        _get_timerange() {
+            let now = Date.now()
+
+            let start = new Date(now)
+            start.setHours(0)
+            start.setMinutes(0)
+            start.setSeconds(0)
+            start.setMilliseconds(0)
+
+            let end = new Date(now)
+            end.setHours(23)
+            end.setMinutes(59)
+            end.setSeconds(59)
+            end.setMilliseconds(999)
+
+            return [start, end]
+        }
+
+        _processWatchers(data) {
+            if (data instanceof Uint8Array) {
+                data = ByteArray.toString(data);
+            }
+
+            if (!data || JSON.parse(data).length == 0) {
+                return "No data from ActivityWatch";
+            }
+
+            data = Object.values(JSON.parse(data))
+                .filter(val => val.client == 'aw-watcher-afk')
+            data.sort((a, b) => new Date(b.last_updated) - new Date(a.last_updated)) // in descending order
+
+            return data[0].id
+        }
+
+        _getWatchers() {
+            let session = new Soup.Session();
+
+            let port = '5600'
+
+            let uri = `http://localhost:${port}/api/0/buckets/`
+
+            let _message = Soup.Message.new("GET", uri);
+
+            session.send_and_read_async(_message, GLib.PRIORITY_DEFAULT, null, (_httpSession, _message) => {
+
+                try {
+                    let w = this._processWatchers(_httpSession.send_and_read_finish(_message).get_data());
+                    console.log(w)
+                    this.watcher = w
+                }
+                catch (e) {
+                    console.warn(e)
+                    _httpSession.abort();
+                }
+            });
+        }
+
+        _setText() {
+
+            let session = new Soup.Session();
+
+            let port = '5600'
+            
+            if(!this.watcher) {
+                this._getWatchers()
+                return
+            }
+
+            let watcher = GLib.Uri.escape_string(this.watcher, null, true);
+
+            let [start, end] = this._get_timerange();
+
+            let escaped_start = GLib.Uri.escape_string(start.toISOString(), null, true);
+            let escaped_end = GLib.Uri.escape_string(end.toISOString(), null, true);
+
+            let uri = `http://localhost:${port}/api/0/buckets/${watcher}/events?start=${escaped_start}&end=${escaped_end}&limit=-1`;
+
+            let _message = Soup.Message.new("GET", uri);
+
+            session.send_and_read_async(_message, GLib.PRIORITY_DEFAULT, null, (_httpSession, _message) => {
+
+                try {
+                    let data = this._processData(_httpSession.send_and_read_finish(_message).get_data());
+                    this.label.set_text(this._format(data));
+                }
+                catch (e) {
+                    console.warn(e)
+                    _httpSession.abort();
+                }
+            });
+
+        }
+
+        _refresh() {
+            const REFRESH_RATE = 3;
+
+            this._setText();
+
+            this._removeTimeout();
+            this._timeout = Mainloop.timeout_add_seconds(REFRESH_RATE, this._refresh.bind(this));
+
+            return true;
+        }
+
+        _removeTimeout() {
+            if (this._timeout) {
+                Mainloop.source_remove(this._timeout);
+                this._timeout = null;
+            }
+        }
+
+        destroy() {
+            this._removeTimeout();
+            super.destroy();
+        }
+    });
 
 class Extension {
     constructor(uuid) {
@@ -128,7 +215,6 @@ class Extension {
     }
 
     disable() {
-        this._indicator._removeTimeout();
         this._indicator.destroy();
         this._indicator = null;
     }
