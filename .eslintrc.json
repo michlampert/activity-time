@@ -1,0 +1,22 @@
+{
+    "env": {
+        "browser": true,
+        "es2021": true
+    },
+    "extends": "airbnb-base",
+    "overrides": [],
+    "parserOptions": {
+        "ecmaVersion": "latest"
+    },
+    "rules": {
+        "max-classes-per-file": [
+            "error",
+            3
+        ],
+        "no-underscore-dangle": 0,
+        "consistent-return": "off",
+        "no-param-reassign": "off",
+        "no-unused-vars": "off",
+        "no-shadow": "off"
+    }
+}
