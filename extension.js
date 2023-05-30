@@ -43,7 +43,7 @@ const Indicator = GObject.registerClass(
       this.add_child(this.box);
 
       this.label = (new St.Label({
-        text: 'dupa',
+        text: '...',
         y_align: Clutter.ActorAlign.CENTER,
       }));
 
@@ -79,6 +79,12 @@ const Indicator = GObject.registerClass(
 
     _toggleMenu() {
       this.menu.removeAll();
+      this.menu.addMenuItem(new PopupMenu.PopupMenuItem('Activity time', {
+        can_focus: false,
+        hover: false,
+        reactive: false,
+      }));
+      this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
       const item = new PopupMenu.PopupMenuItem(_('Settings'));
       item.connect('activate', () => ExtensionUtils.openPrefs());
       this.menu.addMenuItem(item);

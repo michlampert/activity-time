@@ -50,7 +50,7 @@ function fillPreferencesWindow(window) {
   });
   settings.bind('show-icon', showIcon, 'active', Gio.SettingsBindFlags.DEFAULT);
 
-  this._add_row(
+  this.addRow(
     group,
     { title: _('Show extension icon') },
     showIcon,
@@ -61,7 +61,7 @@ function fillPreferencesWindow(window) {
   port.valign = Gtk.Align.CENTER;
   settings.bind('port', port, 'value', Gio.SettingsBindFlags.DEFAULT);
 
-  const row = this._add_row(
+  const row = this.addRow(
     group,
     {
       title: _('Select port'),
@@ -70,7 +70,7 @@ function fillPreferencesWindow(window) {
     port,
   );
   settings.connect('changed::port', (settings, key) => {
-    row.set_subtitle(`${_('ActivityWatch should be available under ')} localhost:${settings.get_int('port')}`);
+    row.set_subtitle(`${_('ActivityWatch should be available at address')} localhost:${settings.get_int('port')}`);
   });
 
   const interval = Gtk.SpinButton.new_with_range(0, 65535, 1);
@@ -78,7 +78,7 @@ function fillPreferencesWindow(window) {
   interval.valign = Gtk.Align.CENTER;
   settings.bind('refresh-time', interval, 'value', Gio.SettingsBindFlags.DEFAULT);
 
-  this._add_row(
+  this.addRow(
     group,
     {
       title: _('Refresh rate [s]'),
@@ -93,11 +93,11 @@ function fillPreferencesWindow(window) {
   });
   settings.bind('show-seconds', showSeconds, 'active', Gio.SettingsBindFlags.DEFAULT);
 
-  this._add_row(
+  this.addRow(
     group,
     {
       title: _('Show seconds'),
-      subtitle: _('Keep in mind that even ActivityWatch refresh date each tens of seconds'),
+      subtitle: _('Keep in mind that even ActivityWatch refresh only once per tens of seconds'),
     },
     showSeconds,
   );
