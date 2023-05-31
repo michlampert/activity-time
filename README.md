@@ -13,3 +13,11 @@
 - You can configure watcher in `~/.config/activitywatch/aw-watcher-afk/` file.
 
 ![magic](https://media.tenor.com/IOEsG9ldvhAAAAAd/mr-bean.gif)
+
+### How to download
+
+```bash
+wget https://raw.githubusercontent.com/michlampert/activity-time/master/activity-time%40michlampert.github.com.shell-extension.zip
+gnome-extensions install -f activity-time@michlampert.github.com.shell-extension.zip
+rm activity-time@michlampert.github.com.shell-extension.zip
+```
